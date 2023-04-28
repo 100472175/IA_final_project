@@ -1,4 +1,6 @@
 # Conditions and exceptions:
+The temperature range goes from 16 to 25:
+16, 16.5, 17, 17.5, 18, 18.5, 19, 19.5, 20, 20.5, 21, 21.5, 22, 22.5, 23, 23.5, 24, 24.5, 25
 ## Heating is on
     - 0.5 = room_temperature += 0.5
     - 0.2 = room_temperature += 1
