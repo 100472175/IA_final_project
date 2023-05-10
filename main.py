@@ -3,60 +3,115 @@ import numpy as np
 from thermostat import Thermostat
 from constants import *
 
-temperatures_list = []
-state_cost = {}
+"""temperatures_list = []
+state_value = {}
 i = MIN_TEMP
 while i < MAX_TEMP + TEMPERATURE_STEP:
     temperatures_list.append(float(i))
-    state_cost[float(i)] = 0
+    state_value[float(i)] = 0
     i += TEMPERATURE_STEP
 
-temperature = input("Enter the actual temperature: ")
-thermostat = Thermostat(int(temperature))
-temperature = int(temperature)
 initial_state = MIN_TEMP
 objective = DESIRED_TEMP
-
+"""
 iterated_states = []
+global actions_taken
 actions_taken = []
 
 
-def bellmanEquation(state):
-    iterated_states.append([])
-    min_list = []
-    if state == MIN_TEMP:
-        pass
-    elif state == MAX_TEMP:
-        pass
-    elif state == MAX_TEMP - TEMPERATURE_STEP:
-        pass
-    else:
-        min_list.append(1 + TEMPERATURE_STEP * state_cost[state + TEMPERATURE_STEP] +
-                        0.2 * state_cost[state + 2 * TEMPERATURE_STEP] +
-                        0.2 * state_cost[state] +
-                        0.1 * state_cost[state - TEMPERATURE_STEP])
+class MarkovModel:
+    def __init__(self):
+        self.c_on = 10
+        self.c_off = 5
+        self.user_temperature = 22
+        self.heater = True
+        self.cooler = False
+        self.tolerance = 0.001
+        self.states = {}
+        for i in np.arange(MIN_TEMP, MAX_TEMP+TEMPERATURE_STEP, TEMPERATURE_STEP):
+            self.states[i] = 0
 
-        min_list.append(0 + 0.7 * state_cost[state - TEMPERATURE_STEP] +
-                        0.1 * state_cost[state + TEMPERATURE_STEP] +
-                        0.2 * state_cost[state])
-        min_choice = min(min_list)
-        if min_choice == min_list[0]:
-            actions_taken.append(("heat", 0))
 
+    def markov_model(self, temperature):
+        # Actions is ON and OFF
+        actions = [0, 0]
+        if temperature == 16:
+            actions[0] = (self.c_on + 0.3 * self.value(temperature) +
+                          0.5 * self.value(temperature + 0.5) +
+                          0.2 * self.value(temperature + 1))
+            actions[1] = (self.c_off + 0.1 * self.value(temperature + 0.5) +
+                          0.9 * self.value(temperature))
+        elif temperature == 25:
+            actions[0] = (self.c_on + 0.1 * self.value(temperature - 0.5) +
+                          0.9 * self.value(temperature))
+            actions[1] = (self.c_off + 0.3 * self.value(temperature) +
+                          0.7 * self.value(temperature - 0.5))
+        elif temperature == 24.5:
+            actions[0] = (self.c_on + 0.7 * self.value(temperature + 0.5) +
+                          0.2 * self.value(temperature) +
+                          0.1 * self.value(temperature - 0.5))
+            actions[1] = (self.c_off + 0.7 * self.value(temperature - 0.5)
+                          + 0.1 * self.value(temperature + 0.5)
+                          + 0.2 * self.value(temperature))
         else:
-            actions_taken.append(("off", 1))
-        state_cost[state] = min_choice
+            actions[0] = (self.c_on + 0.5 * self.value(temperature + 0.5) +
+                          0.2 * self.value(temperature + 1) +
+                          0.2 * self.value(temperature) +
+                          0.1 * self.value(temperature - 0.5))
+            actions[1] = (self.c_off + 0.7 * self.value(temperature - 0.5) +
+                          0.1 * self.value(temperature + 0.5) +
+                          0.2 * self.value(temperature))
+        if min(actions) == actions[0]:
+            actions_taken.append("heating")
+        else:
+            actions_taken.append("cooling")
 
-    return actions_taken, state_cost
+    def value(self, element):
+        states = {}
+        for i in np.arange(MIN_TEMP, MAX_TEMP+TEMPERATURE_STEP, TEMPERATURE_STEP):
+            states[i] = 0
+        while True:
+            for element in states:
+                if element != self.user_temperature:
+                    if element == 16:
+                        V_next = min(self.c_on + 0.3 * states[element] +
+                                     0.5 * states[element + 0.5] +
+                                     0.2 * states[element + 1],
+                                     self.c_off + 0.1 * states[element + 0.5]
+                                     + 0.9 * states[element])
+                    elif element == 25:
+                        V_next = min(self.c_on + 0.1 * states[element - 0.5] +
+                                     0.9 * states[element],
+                                     self.c_off + 0.3 * states[element] +
+                                     0.7 * states[element - 0.5])
+                    elif element == 24.5:
+                        V_next = min(self.c_on + 0.7 * states[element + 0.5] +
+                                     0.2 * states[element] +
+                                     0.1 * states[element - 0.5],
+                                     self.c_off + 0.7 * states[element - 0.5] +
+                                     0.1 * states[element + 0.5] +
+                                     0.2 * states[element])
+                    else:
+                        V_next = min(self.c_on + 0.5 * states[element + 0.5] +
+                                     0.2 * states[element + 1] +
+                                     0.2 * states[element] +
+                                     0.1 * states[element - 0.5],
+                                     self.c_off + 0.7 * states[element - 0.5] +
+                                     0.1 * states[element + 0.5] +
+                                     0.2 * states[element])
+                else:
+                    V_next = 0
 
-def bellmanEquation_base(state):
-    return bellmanEquation(state)
+                self.states[element] = V_next
+            if abs(self.states[element] - states[element]) < self.tolerance:
+                return self.states[element]
+            else:
+                for element in states:
+                    states[element] = self.states[element]
 
-if temperature > objective:
-    print("The optimal action is to not heat the room")
-    exit()
+for i in range(1000):
+    my = MarkovModel()
+    my.markov_model(22)
+    print(my.states)
 
-for i in np.arange(temperature, objective, TEMPERATURE_STEP):
-    actions, state_cost = bellmanEquation_base(i)
-    print(actions)
-print(actions_taken)
+
