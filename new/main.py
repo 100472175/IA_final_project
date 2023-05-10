@@ -14,9 +14,10 @@ class Markov:
     def __init__(self):
         self.c_on = 10
         self.c_off = 5
-        self.tolerance = 0.001
+        self.tolerance = 0.000001
         self.objective = 22
-        self.iterations()
+        for i in np.arange(MIN_TEMP, MAX_TEMP+TEMPERATURE_STEP, TEMPERATURE_STEP):
+            print(i, self.bellman(i))
 
 
     def bellman(self, temperature):
@@ -51,40 +52,45 @@ class Markov:
             actions[1] = (self.c_off + 0.7 * states_final_values[temperature - TEMPERATURE_STEP] +
                           0.1 * states_final_values[temperature + TEMPERATURE_STEP] +
                           0.2 * states_final_values[temperature])
+        if actions[0] < actions[1]:
+            return "Heating", actions[0]
+        else:
+            return "Cooling", actions[1]
 
     def iterations(self):
         while True:
             for temperature in states_final_values:
                 if temperature == self.objective:
                     states[temperature] = 0
-                    pass
-                working_temp = 0
-                if temperature == 16:
-                    states_final_values[temperature] = min(self.c_on + 0.3 * states[temperature] +
-                                       0.5 * states[temperature + TEMPERATURE_STEP] +
-                                       0.2 * states[temperature + 2 * TEMPERATURE_STEP],
-                                       self.c_off + 0.1 * states[temperature + TEMPERATURE_STEP] +
-                                       0.9 * states[temperature])
-                elif temperature == 25:
-                    states_final_values[temperature] = min(self.c_on + 0.1 * states[temperature - TEMPERATURE_STEP] +
-                                       0.9 * states[temperature],
-                                       self.c_off + 0.3 * states[temperature] +
-                                       0.7 * states[temperature - TEMPERATURE_STEP])
-                elif temperature == 24.5:
-                    states_final_values[temperature] = min(self.c_on + 0.7 * states[temperature + TEMPERATURE_STEP] +
-                                       0.2 * states[temperature] +
-                                       0.1 * states[temperature - TEMPERATURE_STEP],
-                                       self.c_off + 0.7 * states[temperature - TEMPERATURE_STEP] +
-                                       0.1 * states[temperature + TEMPERATURE_STEP] +
-                                       0.2 * states[temperature])
+                    continue
                 else:
-                    states_final_values[temperature] = min(self.c_on + 0.5 * states[temperature + TEMPERATURE_STEP] +
-                                       0.2 * states[temperature + 2 * TEMPERATURE_STEP] +
-                                       0.2 * states[temperature] +
-                                       0.1 * states[temperature - TEMPERATURE_STEP],
-                                       self.c_off + 0.7 * states[temperature - TEMPERATURE_STEP] +
-                                       0.1 * states[temperature + TEMPERATURE_STEP] +
-                                       0.2 * states[temperature])
+                    working_temp = 0
+                    if temperature == 16:
+                        states_final_values[temperature] = min(self.c_on + 0.3 * states[temperature] +
+                                           0.5 * states[temperature + TEMPERATURE_STEP] +
+                                           0.2 * states[temperature + 2 * TEMPERATURE_STEP],
+                                           self.c_off + 0.1 * states[temperature + TEMPERATURE_STEP] +
+                                           0.9 * states[temperature])
+                    elif temperature == 25:
+                        states_final_values[temperature] = min(self.c_on + 0.1 * states[temperature - TEMPERATURE_STEP] +
+                                           0.9 * states[temperature],
+                                           self.c_off + 0.3 * states[temperature] +
+                                           0.7 * states[temperature - TEMPERATURE_STEP])
+                    elif temperature == 24.5:
+                        states_final_values[temperature] = min(self.c_on + 0.7 * states[temperature + TEMPERATURE_STEP] +
+                                           0.2 * states[temperature] +
+                                           0.1 * states[temperature - TEMPERATURE_STEP],
+                                           self.c_off + 0.7 * states[temperature - TEMPERATURE_STEP] +
+                                           0.1 * states[temperature + TEMPERATURE_STEP] +
+                                           0.2 * states[temperature])
+                    else:
+                        states_final_values[temperature] = min(self.c_on + 0.5 * states[temperature + TEMPERATURE_STEP] +
+                                           0.2 * states[temperature + 2 * TEMPERATURE_STEP] +
+                                           0.2 * states[temperature] +
+                                           0.1 * states[temperature - TEMPERATURE_STEP],
+                                           self.c_off + 0.7 * states[temperature - TEMPERATURE_STEP] +
+                                           0.1 * states[temperature + TEMPERATURE_STEP] +
+                                           0.2 * states[temperature])
                 valids = 0
                 for j in states_final_values.keys():
                     if abs(states_final_values[j] - states[j]) < self.tolerance:
@@ -96,4 +102,7 @@ class Markov:
 
 
 mk = Markov()
-print(states)
+#print(states)
+#import pprint
+#pp = pprint.PrettyPrinter(indent=4)
+#pp.pprint(states)
