@@ -82,14 +82,12 @@ class Markov:
     def solve(self):
         for i in np.arange(self.min_temp, self.max_temp + self.temp_step, self.temp_step):
             self._bellman(i)
-            print(self.states_values)
+            # print(self.states_values)
 
     def _bellman(self, temperature):
         # Get the values of all the states
         self.iterations()
 
-        # Actions is ON and OFF
-        actions = [0, 0]
         if temperature == self.desired:
             return "Cooling", 0
         elif temperature == self.min_temp:
@@ -100,7 +98,7 @@ class Markov:
             section = "maximum-1_temperature"
         else:
             section = "normal"
-
+        #Actions are on and off, declared as the cost of each action
         actions = [self.c_on, self.c_off]
         for i in range(2):
             data = {}
@@ -136,37 +134,39 @@ class Markov:
                     self.states[temperature] = 0
                     continue
                 else:
-                    working_temp = 0
-                    if temperature == 16:
-                        self.states_values[temperature] = min(self.c_on + 0.3 * self.states[temperature] +
-                                                              0.5 * self.states[temperature + TEMPERATURE_STEP] +
-                                                              0.2 * self.states[temperature + 2 * TEMPERATURE_STEP],
-                                                              self.c_off + 0.1 * self.states[
-                                                                  temperature + TEMPERATURE_STEP] +
-                                                              0.9 * self.states[temperature])
-                    elif temperature == 25:
-                        self.states_values[temperature] = min(
-                            self.c_on + 0.1 * self.states[temperature - TEMPERATURE_STEP] +
-                            0.9 * self.states[temperature],
-                            self.c_off + 0.3 * self.states[temperature] +
-                            0.7 * self.states[temperature - TEMPERATURE_STEP])
-                    elif temperature == 24.5:
-                        self.states_values[temperature] = min(
-                            self.c_on + 0.7 * self.states[temperature + TEMPERATURE_STEP] +
-                            0.2 * self.states[temperature] +
-                            0.1 * self.states[temperature - TEMPERATURE_STEP],
-                            self.c_off + 0.7 * self.states[temperature - TEMPERATURE_STEP] +
-                            0.1 * self.states[temperature + TEMPERATURE_STEP] +
-                            0.2 * self.states[temperature])
+                    if temperature == self.min_temp:
+                        section = "minimum_temperature"
+                    elif temperature == self.max_temp:
+                        section = "maximum_temperature"
+                    elif temperature == self.max_temp - self.temp_step:
+                        section = "maximum-1_temperature"
                     else:
-                        self.states_values[temperature] = min(
-                            self.c_on + 0.5 * self.states[temperature + TEMPERATURE_STEP] +
-                            0.2 * self.states[temperature + 2 * TEMPERATURE_STEP] +
-                            0.2 * self.states[temperature] +
-                            0.1 * self.states[temperature - TEMPERATURE_STEP],
-                            self.c_off + 0.7 * self.states[temperature - TEMPERATURE_STEP] +
-                            0.1 * self.states[temperature + TEMPERATURE_STEP] +
-                            0.2 * self.states[temperature])
+                        section = "normal"
+                        # Actions are on and off, declared as the cost of each action
+                    actions = [self.c_on, self.c_off]
+                    for i in range(2):
+                        data = {}
+                        working_section = section + "_" + self.options[i]
+                        for keys in self.config.options(working_section):
+                            data[keys] = float(self.config.get(working_section, keys))
+                        try:
+                            actions[i] += data["stay"] * self.states[temperature]
+                        except KeyError:
+                            pass
+                        try:
+                            actions[i] += data["next"] * self.states[temperature + TEMPERATURE_STEP]
+                        except KeyError:
+                            pass
+                        try:
+                            actions[i] += data["next2"] * self.states[temperature + 2 * TEMPERATURE_STEP]
+                        except KeyError:
+                            pass
+                        try:
+                            actions[i] += data["prev"] * self.states[temperature - TEMPERATURE_STEP]
+                        except KeyError:
+                            pass
+                    self.states_values[temperature] = min(actions)
+
                 valids = 0
                 for j in self.states_values.keys():
                     if abs(self.states_values[j] - self.states[j]) < self.tolerance:
@@ -175,6 +175,8 @@ class Markov:
                         self.states[j] = self.states_values[j]
                 if valids == len(self.states_values):
                     return
+
+
 
 
 # Aquí va el parsing de los argumentos, para hacer el init de Markov
