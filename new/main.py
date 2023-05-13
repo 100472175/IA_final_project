@@ -2,15 +2,21 @@ from constants import *
 import numpy as np
 import configparser
 import os
+from transitions import ExcelParser
+
 
 
 class Markov:
     def __init__(self, file_path):
+        self.transitions = None
         self.file_path = file_path
         self.options = ["heating", "cooling"]
         self.actions_to_take = {}
-        self.parse_file()
+        self.parse_files()
+        # Old:
+        # self.verify_values_config()
         self.verify_values()
+        self.transitions_dict = self.merge_transitions()
         self.assign_general_values()
         self.define_states()
 
@@ -22,7 +28,7 @@ class Markov:
             list_to_return += "\n"
         return list_to_return
 
-    def parse_file(self):
+    def parse_files(self):
         # Load the INI configuration file
         self.config = configparser.ConfigParser()
         if not os.path.exists(self.file_path):
@@ -30,7 +36,10 @@ class Markov:
             exit(-1)
         self.config.read(self.file_path)
 
-    def verify_values(self):
+        # Load the Excel file
+        self.transitions = ExcelParser(self.config.get("general", "transitions_path"))
+
+    """def verify_values_config(self):
         # Check if the values are correct for each of the sections in the INI file
         for section in self.config.sections():
             if section == "general":
@@ -44,7 +53,35 @@ class Markov:
 
             if 1 - add > 0.0001:
                 print(add)
-                raise Exception("The sum of the values of {} is not 1".format(section))
+                raise Exception("The sum of the values of {} is not 1".format(section))"""
+
+
+    def verify_values(self):
+        data = self.data
+        for element in data.heat_trans.keys():
+            add = 0
+            for key in data.heat_trans[element].keys():
+                try:
+                    data.heat_trans[element][key] = float(data.heat_trans[element][key])
+                except ValueError:
+                    raise Exception("The value of {} is not a number".format(key))
+                add += data.heat_trans[element][key]
+            if 1 - add > 0.0001:
+                raise Exception("The sum of the values of {} is not 1".format(element))
+
+        for element in data.cool_trans.keys():
+            add = 0
+            for key in data.cool_trans[element].keys():
+                try:
+                    data.cool_trans[element][key] = float(data.cool_trans[element][key])
+                except ValueError:
+                    raise Exception("The value of {} is not a number".format(key))
+            add += data.cool_trans[element][key]
+            if 1 - add > 0.0001:
+                raise Exception("The sum of the values of {} is not 1".format(element))
+
+    def merge_transitions(self):
+        return {"heating": self.transitions.heat_trans, "cooling": self.transition.cool_trans}
 
     def assign_general_values(self):
         self.c_on = self.config.get("general", "cost_heating")
@@ -91,6 +128,28 @@ class Markov:
             # print(self.states_values)
 
     def _bellman(self, temperature):
+        if temperature == self.desired:
+            return "Cooling", 0
+        actions = [self.c_on, self.c_off]
+        for i in self.transitions_dict.keys(): # i is the action, heating or cooling
+            name = f'dict_{temperature}'
+            for k in self.transitions_dict[i][name].keys():
+                # Ahora estoy en en el diccionario del estado
+                if self.transitions_dict[i][name][k] == 0:
+                    continue
+                actions += self.transitions_dict[i][name][k] * self.states_values[k]
+        if actions[0] < actions[1]:
+            return "Heating", actions[0]
+        else:
+            return "Cooling", actions[1]
+
+    def _iterations(self):
+        # TODO
+        pass
+
+
+
+    def _bellman2(self, temperature):
         # Get the values of all the states
 
         if temperature == self.desired:
@@ -133,7 +192,7 @@ class Markov:
         else:
             return "Cooling", actions[1]
 
-    def _iterations(self):
+    def _iterations2(self):
         while True:
             for temperature in self.states_values:
                 if temperature == self.desired:
