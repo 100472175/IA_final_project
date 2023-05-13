@@ -11,11 +11,8 @@ class Markov:
         self.tolerance = None
         self.transitions = None
         self.file_path = file_path
-        self.options = ["heating", "cooling"]
         self.actions_to_take = {}
         self.parse_files()
-        # Old:
-        #self.verify_values_config()
         self.verify_values()
         self.transitions_dict = self.merge_transitions()
         self.assign_general_values()
@@ -39,22 +36,6 @@ class Markov:
 
         # Load the Excel file
         self.transitions = ExcelParser(self.file_path, self.config.get("general", "transitions_path"))
-
-    def verify_values_config(self):
-        # Check if the values are correct for each of the sections in the INI file
-        for section in self.config.sections():
-            if section == "general":
-                continue
-            add = 0
-            for key in self.config.options(section):
-                try:
-                    add += float(self.config.get(section, key))
-                except ValueError:
-                    raise Exception("The value of {} is not a number".format(key))
-
-            if 1 - add > 0.0001:
-                print(add)
-                raise Exception("The sum of the values of {} is not 1".format(section))
 
     def verify_values(self):
         data = self.transitions
@@ -161,104 +142,6 @@ class Markov:
                     self.states[j] = self.states_values[j]
             if valids == len(self.states_values):
                 return
-
-
-
-    def _bellman_old(self, temperature):
-        # Get the values of all the states
-
-        if temperature == self.desired:
-            return "Cooling", 0
-        elif temperature == self.min_temp:
-            section = "minimum_temperature"
-        elif temperature == self.max_temp:
-            section = "maximum_temperature"
-        elif temperature == self.max_temp - self.temp_step:
-            section = "maximum-1_temperature"
-        else:
-            section = "normal"
-        # Actions are on and off, declared as the cost of each action
-        actions = [self.c_on, self.c_off]
-        for i in range(2):
-            data = {}
-            working_section = section + "_" + self.options[i]
-            for keys in self.config.options(working_section):
-                data[keys] = float(self.config.get(working_section, keys))
-
-            try:
-                actions[i] += data["stay"] * self.states_values[temperature]
-            except KeyError:
-                pass
-            try:
-                actions[i] += data["next"] * self.states_values[temperature + self.temp_step]
-            except KeyError:
-                pass
-            try:
-                actions[i] += data["next2"] * self.states_values[temperature + 2 * self.temp_step]
-            except KeyError:
-                pass
-            try:
-                actions[i] += data["prev"] * self.states_values[temperature - self.temp_step]
-            except KeyError:
-                pass
-
-        if actions[0] < actions[1]:
-            return "Heating", actions[0]
-        else:
-            return "Cooling", actions[1]
-
-    def _iterations_olf(self):
-        while True:
-            for temperature in self.states_values:
-                if temperature == self.desired:
-                    self.states[temperature] = 0
-                    continue
-                else:
-                    if temperature == self.min_temp:
-                        section = "minimum_temperature"
-                    elif temperature == self.max_temp:
-                        section = "maximum_temperature"
-                    elif temperature == self.max_temp - self.temp_step:
-                        section = "maximum-1_temperature"
-                    else:
-                        section = "normal"
-                        # Actions are on and off, declared as the cost of each action
-                    actions = [self.c_on, self.c_off]
-                    for i in range(2):
-                        data = {}
-                        working_section = section + "_" + self.options[i]
-                        for keys in self.config.options(working_section):
-                            data[keys] = float(self.config.get(working_section, keys))
-                        try:
-                            actions[i] += data["stay"] * self.states[temperature]
-                        except KeyError:
-                            pass
-
-                        try:
-                            actions[i] += data["next"] * self.states[temperature + self.temp_step]
-                        except KeyError:
-                            pass
-
-                        try:
-                            actions[i] += data["next2"] * self.states[temperature + 2 * self.temp_step]
-                        except KeyError:
-                            pass
-
-                        try:
-                            actions[i] += data["prev"] * self.states[temperature - self.temp_step]
-                        except KeyError:
-                            pass
-
-                    self.states_values[temperature] = min(actions)
-
-                valids = 0
-                for j in self.states_values.keys():
-                    if abs(self.states_values[j] - self.states[j]) < self.tolerance:
-                        valids += 1
-                    else:
-                        self.states[j] = self.states_values[j]
-                if valids == len(self.states_values):
-                    return
 
 
 mk = Markov("config.ini")
