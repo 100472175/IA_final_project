@@ -14,7 +14,8 @@ class Markov:
         self.actions_to_take = {}
         self.parse_files()
         self.verify_values()
-        self.transitions_dict = self.merge_transitions()
+        self.transitions_dict = {"heating": self.transitions.heat_trans,
+                                 "cooling": self.transitions.cool_trans}
         self.assign_general_values()
         self.define_states()
 
@@ -60,9 +61,6 @@ class Markov:
                 add += data.cool_trans[element][key]
             if 1 - add > 0.0001:
                 raise Exception("The sum of the values of {} is not 1".format(element))
-
-    def merge_transitions(self):
-        return {"heating": self.transitions.heat_trans, "cooling": self.transitions.cool_trans}
 
     def assign_general_values(self):
         try:
