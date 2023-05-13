@@ -2,6 +2,7 @@ from constants import *
 import numpy as np
 import configparser
 import os
+import matplotlib.pyplot as plt
 
 
 class Markov:
@@ -85,13 +86,13 @@ class Markov:
             raise ValueError("The desired temperature is not in the range of temperatures")
 
     def solve(self):
-        self._iterations()
         for i in np.arange(self.min_temp, self.max_temp + self.temp_step, self.temp_step):
             self.actions_to_take[i] = self._bellman(i)
             # print(self.states_values)
 
     def _bellman(self, temperature):
         # Get the values of all the states
+        self._iterations()
 
         if temperature == self.desired:
             return "Cooling", 0
@@ -110,7 +111,6 @@ class Markov:
             working_section = section + "_" + self.options[i]
             for keys in self.config.options(working_section):
                 data[keys] = float(self.config.get(working_section, keys))
-
             try:
                 actions[i] += data["stay"] * self.states_values[temperature]
             except KeyError:
@@ -159,22 +159,18 @@ class Markov:
                             actions[i] += data["stay"] * self.states[temperature]
                         except KeyError:
                             pass
-
                         try:
                             actions[i] += data["next"] * self.states[temperature + TEMPERATURE_STEP]
                         except KeyError:
                             pass
-
                         try:
                             actions[i] += data["next2"] * self.states[temperature + 2 * TEMPERATURE_STEP]
                         except KeyError:
                             pass
-
                         try:
                             actions[i] += data["prev"] * self.states[temperature - TEMPERATURE_STEP]
                         except KeyError:
                             pass
-
                     self.states_values[temperature] = min(actions)
 
                 valids = 0
@@ -187,7 +183,38 @@ class Markov:
                     return
 
 
+# Aquí va el parsing de los argumentos, para hacer el init de Markov
 
 mk = Markov("config.ini")
 mk.solve()
 print(mk)
+
+x = mk.states_values.keys()
+y_def = mk.states_values.values()
+plt.title("Cost of the states")
+plt.plot(x, y_def, color='blue', label="Default")
+
+mk = Markov("config.ini")
+mk.c_on = 1
+mk.c_off = 1
+mk.solve()
+y_time = mk.states_values.values()
+plt.plot(x, y_time, color='red', label="Time")
+
+mk = Markov("config.ini")
+mk.c_on = 40
+mk.c_off = 5
+mk.solve()
+y_eff = mk.states_values.values()
+plt.plot(x, y_eff, color='green', label="Efficiency")
+
+mk = Markov("config.ini")
+mk.c_on = 10
+mk.c_off = 0
+mk.solve()
+y_off_0 = mk.states_values.values()
+plt.plot(x, y_off_0, color='black', label="Cost cooling 0")
+mk.solve()
+
+plt.legend()
+plt.show()
