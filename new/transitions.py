@@ -42,9 +42,21 @@ class ExcelParser:
         for key in transition.keys():
             transition[key].pop("Unnamed: 0")
 
-        """for dict_name, row_dict in self.transition.items():
-            print(f'{dict_name}: {row_dict}')"""
         return transition
+
+    def __str__(self):
+        string = "Heating transitions:\n"
+        for i in self.heat_trans.keys():
+            string += str(i)+": "
+            string += self.heat_trans[i].__str__()
+            string += "\n"
+        string += "\nCooling transitions:\n"
+        for i in self.cool_trans.keys():
+            string += str(i) + ": "
+            string += self.cool_trans[i].__str__()
+            string += "\n"
+        return string
 
 if __name__ == "__main__":
     a = ExcelParser("config.ini", "data.xlsx")
+    print(a)
