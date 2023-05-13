@@ -1,20 +1,21 @@
-from constants import *
 import numpy as np
 import configparser
 import os
 from transitions import ExcelParser
 
 
-
 class Markov:
     def __init__(self, file_path):
+        self.c_on = None
+        self.c_off = None
+        self.tolerance = None
         self.transitions = None
         self.file_path = file_path
         self.options = ["heating", "cooling"]
         self.actions_to_take = {}
         self.parse_files()
         # Old:
-        # self.verify_values_config()
+        #self.verify_values_config()
         self.verify_values()
         self.transitions_dict = self.merge_transitions()
         self.assign_general_values()
@@ -37,9 +38,9 @@ class Markov:
         self.config.read(self.file_path)
 
         # Load the Excel file
-        self.transitions = ExcelParser(self.config.get("general", "transitions_path"))
+        self.transitions = ExcelParser(self.file_path, self.config.get("general", "transitions_path"))
 
-    """def verify_values_config(self):
+    def verify_values_config(self):
         # Check if the values are correct for each of the sections in the INI file
         for section in self.config.sections():
             if section == "general":
@@ -53,11 +54,10 @@ class Markov:
 
             if 1 - add > 0.0001:
                 print(add)
-                raise Exception("The sum of the values of {} is not 1".format(section))"""
-
+                raise Exception("The sum of the values of {} is not 1".format(section))
 
     def verify_values(self):
-        data = self.data
+        data = self.transitions
         for element in data.heat_trans.keys():
             add = 0
             for key in data.heat_trans[element].keys():
@@ -76,27 +76,24 @@ class Markov:
                     data.cool_trans[element][key] = float(data.cool_trans[element][key])
                 except ValueError:
                     raise Exception("The value of {} is not a number".format(key))
-            add += data.cool_trans[element][key]
+                add += data.cool_trans[element][key]
             if 1 - add > 0.0001:
                 raise Exception("The sum of the values of {} is not 1".format(element))
 
     def merge_transitions(self):
-        return {"heating": self.transitions.heat_trans, "cooling": self.transition.cool_trans}
+        return {"heating": self.transitions.heat_trans, "cooling": self.transitions.cool_trans}
 
     def assign_general_values(self):
-        self.c_on = self.config.get("general", "cost_heating")
-        self.c_off = self.config.get("general", "cost_cooling")
-        self.tolerance = self.config.get("general", "tolerance")
         try:
-            self.c_on = float(self.c_on)
+            self.c_on = float(self.config.get("general", "cost_heating"))
         except ValueError:
             raise Exception("The cost of heating is not a number")
         try:
-            self.c_off = float(self.c_off)
+            self.c_off = float(self.config.get("general", "cost_cooling"))
         except ValueError:
             raise Exception("The cost of cooling is not a number")
         try:
-            self.tolerance = float(self.tolerance)
+            self.tolerance = float(self.config.get("general", "tolerance"))
         except ValueError:
             raise Exception("The tolerance is not a number")
 
@@ -130,26 +127,44 @@ class Markov:
     def _bellman(self, temperature):
         if temperature == self.desired:
             return "Cooling", 0
-        actions = [self.c_on, self.c_off]
-        for i in self.transitions_dict.keys(): # i is the action, heating or cooling
-            name = f'dict_{temperature}'
+        actions = {"heating": self.c_on, "cooling": self.c_off}
+        for i in self.transitions_dict.keys():  # i is the action, heating or cooling
+            name = f'dict_{float(temperature)}'
             for k in self.transitions_dict[i][name].keys():
                 # Ahora estoy en en el diccionario del estado
                 if self.transitions_dict[i][name][k] == 0:
                     continue
-                actions += self.transitions_dict[i][name][k] * self.states_values[k]
-        if actions[0] < actions[1]:
-            return "Heating", actions[0]
+                actions[i] += self.transitions_dict[i][name][k] * self.states_values[k]
+
+        if actions["heating"] < actions["cooling"]:
+            return "Heating", actions["heating"]
         else:
-            return "Cooling", actions[1]
+            return "Cooling", actions["cooling"]
 
     def _iterations(self):
-        # TODO
-        pass
+        while True:
+            for temperature in self.states_values:
+                if temperature == self.desired:
+                    continue
+                else:
+                    actions = {"heating": self.c_on, "cooling": self.c_off}
+                    for i in actions.keys():
+                        for k in self.transitions_dict[i][f'dict_{temperature}'].keys():
+                            actions[i] += self.transitions_dict[i][f'dict_{temperature}'][k] * self.states_values[k]
+                    self.states_values[temperature] = min(actions.values())
+
+            valids = 0
+            for j in self.states_values.keys():
+                if abs(self.states_values[j] - self.states[j]) < self.tolerance:
+                    valids += 1
+                else:
+                    self.states[j] = self.states_values[j]
+            if valids == len(self.states_values):
+                return
 
 
 
-    def _bellman2(self, temperature):
+    def _bellman_old(self, temperature):
         # Get the values of all the states
 
         if temperature == self.desired:
@@ -175,15 +190,15 @@ class Markov:
             except KeyError:
                 pass
             try:
-                actions[i] += data["next"] * self.states_values[temperature + TEMPERATURE_STEP]
+                actions[i] += data["next"] * self.states_values[temperature + self.temp_step]
             except KeyError:
                 pass
             try:
-                actions[i] += data["next2"] * self.states_values[temperature + 2 * TEMPERATURE_STEP]
+                actions[i] += data["next2"] * self.states_values[temperature + 2 * self.temp_step]
             except KeyError:
                 pass
             try:
-                actions[i] += data["prev"] * self.states_values[temperature - TEMPERATURE_STEP]
+                actions[i] += data["prev"] * self.states_values[temperature - self.temp_step]
             except KeyError:
                 pass
 
@@ -192,7 +207,7 @@ class Markov:
         else:
             return "Cooling", actions[1]
 
-    def _iterations2(self):
+    def _iterations_olf(self):
         while True:
             for temperature in self.states_values:
                 if temperature == self.desired:
@@ -220,17 +235,17 @@ class Markov:
                             pass
 
                         try:
-                            actions[i] += data["next"] * self.states[temperature + TEMPERATURE_STEP]
+                            actions[i] += data["next"] * self.states[temperature + self.temp_step]
                         except KeyError:
                             pass
 
                         try:
-                            actions[i] += data["next2"] * self.states[temperature + 2 * TEMPERATURE_STEP]
+                            actions[i] += data["next2"] * self.states[temperature + 2 * self.temp_step]
                         except KeyError:
                             pass
 
                         try:
-                            actions[i] += data["prev"] * self.states[temperature - TEMPERATURE_STEP]
+                            actions[i] += data["prev"] * self.states[temperature - self.temp_step]
                         except KeyError:
                             pass
 
@@ -244,7 +259,6 @@ class Markov:
                         self.states[j] = self.states_values[j]
                 if valids == len(self.states_values):
                     return
-
 
 
 mk = Markov("config.ini")
