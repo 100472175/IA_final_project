@@ -5,7 +5,7 @@ import os
 
 class ExcelParser:
     """
-    The dictionaries are called: dict_temperature, inside self.transition
+    The dictionaries are called: dict_temperature, inside 'self.transition'
     ie: dict_16.5 as the key for the dictionary of the temperature 16.5
     """
 
@@ -13,6 +13,7 @@ class ExcelParser:
         self.transition = None
         self.file_path = config_path
         self.transitions_path = excel_path
+        self.config = None
         self.parse_config_file()
         self.heat_trans = self.parse_transitions("Heating")
         self.cool_trans = self.parse_transitions("Cooling")
@@ -27,7 +28,7 @@ class ExcelParser:
 
     def parse_transitions(self, action):
         if not os.path.exists(self.transitions_path):
-            print("File not found")
+            print("File {} not found at {}".format(self.transitions_path, os.path.abspath('.')))
             exit(-1)
         df = pd.read_excel('data.xlsx', sheet_name=action)
         result = df.to_dict(orient='records')
@@ -56,6 +57,7 @@ class ExcelParser:
             string += self.cool_trans[i].__str__()
             string += "\n"
         return string
+
 
 if __name__ == "__main__":
     a = ExcelParser("config.ini", "data.xlsx")

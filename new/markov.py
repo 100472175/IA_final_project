@@ -1,3 +1,5 @@
+import argparse
+
 import numpy as np
 import configparser
 import os
@@ -5,17 +7,23 @@ from transitions import ExcelParser
 
 
 class Markov:
-    def __init__(self, file_path):
+    def __init__(self, file_path, desired=None):
+        self.min_temp = None
+        self.max_temp = None
+        self.temp_step = None
+        self.desired = desired
         self.c_on = None
         self.c_off = None
         self.tolerance = None
-        self.transitions = None
+        self.config = None
+        self.states_values = None
+        self.states = None
+
         self.file_path = file_path
         self.actions_to_take = {}
         self.parse_files()
         self.verify_values()
-        self.transitions_dict = {"heating": self.transitions.heat_trans,
-                                 "cooling": self.transitions.cool_trans}
+
         self.assign_general_values()
         self.define_states()
 
@@ -31,36 +39,27 @@ class Markov:
         # Load the INI configuration file
         self.config = configparser.ConfigParser()
         if not os.path.exists(self.file_path):
-            print("File not found")
+            print('Configuration file: {} not found at {}'.format(self.file_path, os.path.abspath('.')))
             exit(-1)
         self.config.read(self.file_path)
 
         # Load the Excel file
-        self.transitions = ExcelParser(self.file_path, self.config.get("general", "transitions_path"))
+        transitions = ExcelParser(self.file_path, self.config.get("general", "transitions_path"))
+        self.transitions_dict = {"heating": transitions.heat_trans,
+                                 "cooling": transitions.cool_trans}
 
     def verify_values(self):
-        data = self.transitions
-        for element in data.heat_trans.keys():
-            add = 0
-            for key in data.heat_trans[element].keys():
-                try:
-                    data.heat_trans[element][key] = float(data.heat_trans[element][key])
-                except ValueError:
-                    raise Exception("The value of {} is not a number".format(key))
-                add += data.heat_trans[element][key]
-            if 1 - add > 0.0001:
-                raise Exception("The sum of the values of {} is not 1".format(element))
-
-        for element in data.cool_trans.keys():
-            add = 0
-            for key in data.cool_trans[element].keys():
-                try:
-                    data.cool_trans[element][key] = float(data.cool_trans[element][key])
-                except ValueError:
-                    raise Exception("The value of {} is not a number".format(key))
-                add += data.cool_trans[element][key]
-            if 1 - add > 0.0001:
-                raise Exception("The sum of the values of {} is not 1".format(element))
+        for j, i in self.transitions_dict.items():
+            for element in i.keys():
+                add = 0
+                for key in i[element].keys():
+                    try:
+                        i[element][key] = float(i[element][key])
+                    except ValueError:
+                        raise Exception("The value of {} is not a number".format(key))
+                    add += i[element][key]
+                if abs(1 - add) > 0.0001:
+                    raise Exception("The sum of the probabilities of {} in the transition {} is not 1".format(element, j))
 
     def assign_general_values(self):
         try:
@@ -82,7 +81,8 @@ class Markov:
         self.min_temp = self.config.get("general", "minimum_temperature")
         self.max_temp = self.config.get("general", "maximum_temperature")
         self.temp_step = self.config.get("general", "temperature_step")
-        self.desired = self.config.get("general", "desired_temperature")
+        if self.desired is None:
+            self.desired = self.config.get("general", "desired_temperature")
         try:
             self.min_temp = float(self.min_temp)
             self.max_temp = float(self.max_temp)
@@ -107,10 +107,9 @@ class Markov:
         if temperature == self.desired:
             return "Cooling", 0
         actions = {"heating": self.c_on, "cooling": self.c_off}
-        for i in self.transitions_dict.keys():  # i is the action, heating or cooling
+        for i in self.transitions_dict.keys():  # for each of the actions, heating or cooling
             name = f'dict_{float(temperature)}'
             for k in self.transitions_dict[i][name].keys():
-                # Ahora estoy en en el diccionario del estado
                 if self.transitions_dict[i][name][k] == 0:
                     continue
                 actions[i] += self.transitions_dict[i][name][k] * self.states_values[k]
@@ -142,6 +141,15 @@ class Markov:
                 return
 
 
-mk = Markov("config.ini")
+# Parse the arguments:
+parser = argparse.ArgumentParser(description='Markov Decision Process')
+parser.add_argument("-g", "--goal", help="desired temperature")
+parser.add_argument("-f", "--file", help="config file path")
+args = parser.parse_args()
+
+if args.file is None:
+    args.file = "config.ini"
+
+mk = Markov(args.file, args.goal)
 mk.solve()
 print(mk)
