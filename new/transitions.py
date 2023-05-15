@@ -1,6 +1,12 @@
-import pandas as pd
+"""
+# Artificial Intelligence - Final Project Assignment
+# Coded by Eduardo Alarcón and Alfonso Pineda
+Module to import the transitions from the excel file
+"""
+
 import configparser
 import os
+import pandas as pd
 
 
 class ExcelParser:
@@ -19,19 +25,27 @@ class ExcelParser:
         self.cool_trans = self.parse_transitions("Cooling")
 
     def parse_config_file(self):
-        # Load the INI configuration file
+        """
+        Load the INI configuration file
+        :return: None
+        """
+
         self.config = configparser.ConfigParser()
         if not os.path.exists(self.file_path):
-            print("File not found")
-            exit(-1)
+            raise FileNotFoundError(f"File {self.file_path} not found")
         self.config.read(self.file_path)
 
     def parse_transitions(self, action):
+        """
+        Parse the Excel file and return a dictionary with the transitions depending on the action
+        :param action:
+        :return:
+        """
         if not os.path.exists(self.transitions_path):
-            print("File {} not found at {}".format(self.transitions_path, os.path.abspath('.')))
-            exit(-1)
-        df = pd.read_excel('data.xlsx', sheet_name=action)
-        result = df.to_dict(orient='records')
+            raise FileNotFoundError(f"File {self.transitions_path} not found at "
+                                    f"{os.path.abspath('.')}")
+        data_frame = pd.read_excel('data.xlsx', sheet_name=action)
+        result = data_frame.to_dict(orient='records')
         # Remove the NaN values from the dictionary and replace them with 0
         result = [{k: v if pd.notna(v) else 0 for k, v in row.items()} for row in result]
         transition = {}
@@ -40,21 +54,21 @@ class ExcelParser:
             dict_name = f'dict_{i / 2 + base}'
             transition[dict_name] = row_dict
 
-        for key in transition.keys():
-            transition[key].pop("Unnamed: 0")
+        for value in transition.values():
+            value.pop("Unnamed: 0")
 
         return transition
 
     def __str__(self):
         string = "Heating transitions:\n"
-        for i in self.heat_trans.keys():
-            string += str(i)+": "
-            string += self.heat_trans[i].__str__()
+        for i, j in self.heat_trans.items():
+            string += str(i) + ": "
+            string += j.__str__()
             string += "\n"
         string += "\nCooling transitions:\n"
-        for i in self.cool_trans.keys():
+        for i, j in self.cool_trans.items():
             string += str(i) + ": "
-            string += self.cool_trans[i].__str__()
+            string += j.__str__()
             string += "\n"
         return string
 

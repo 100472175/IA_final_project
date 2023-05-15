@@ -68,3 +68,7 @@ policy, V = value_iteration(env)
 # Print the optimal policy and the corresponding state values
 for s in range(env.observation_space.n):
     print(f"State {s}: Action {policy[s]}, Value {V[s]}")
+
+
+# Q: How to create a requirement.txt file?
+# A: pip freeze > requirements.txt
