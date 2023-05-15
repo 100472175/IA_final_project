@@ -43,7 +43,7 @@ class ExcelParser:
         """
         if not os.path.exists(self.transitions_path):
             raise FileNotFoundError(f"File {self.transitions_path} not found at "
-                                    f"{os.path.abspath('.')}")
+                                    f"{os.path.abspath('')}")
         data_frame = pd.read_excel('data.xlsx', sheet_name=action)
         result = data_frame.to_dict(orient='records')
         # Remove the NaN values from the dictionary and replace them with 0

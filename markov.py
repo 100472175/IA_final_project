@@ -63,7 +63,7 @@ class Markov:
         self.config = configparser.ConfigParser()
         if not os.path.exists(self.file_path):
             raise FileNotFoundError(f'Configuration file: {self.file_path} not found at '
-                                    f'{os.path.abspath(".")}')
+                                    f'{os.path.abspath("")}')
         self.config.read(self.file_path)
 
         # Load the Excel file and get the transitions
